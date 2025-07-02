@@ -1,4 +1,5 @@
 package com.motycka.edu
+import com.motycka.edu.order.orderRoutes
 
 import com.motycka.edu.config.AUTH_JWT
 import com.motycka.edu.config.configureDatabases
@@ -34,21 +35,32 @@ fun main() {
     val host = ktorConfig.propertyOrNull("host")?.getString() ?: "0.0.0.0"
 
     embeddedServer(Netty, port = port, host = host) {
-        // Get the environment configuration
 
         logger.info { "Starting application with configuration" }
 
-        // Configure the database
         configureDatabases()
 
         val menuRepository = MenuRepositoryImpl()
+        val userRepository= UserRepositoryImpl()
+        val customerRepository = CustomerRepositoryImpl()
+        val orderRepository = OrderRepositoryImpl()
+        val orderItemRepository = OrderItemRepositoryImpl()
+
+
+        val internalCustomerService = InternalCustomerService(customerRepository = customerRepository)
         val menuService = MenuService(menuRepository = menuRepository)
         val jwtGenerator = JwtService(config = applicationConfig)
-        val userRepository = UserRepositoryImpl()
         val authenticationService = AuthenticationService(
             userRepository = userRepository,
-            internalCustomerService = InternalCustomerService(customerRepository = CustomerRepositoryImpl()),
+            internalCustomerService = internalCustomerService,
             jwtService = jwtGenerator
+        )
+
+        val orderService= OrderService(
+            orderRepository = orderRepository,
+            orderItemRepository = orderItemRepository,
+            menuRepository = menuRepository,
+            customerService = internalCustomerService
         )
 
         install(ContentNegotiation) {
@@ -68,6 +80,7 @@ fun main() {
             authenticate(AUTH_JWT) {
                 menuRoutes(menuService, API_PATH)
                 // add order routes
+                orderRoutes(orderService, API_PATH)
             }
         }
     }.start(wait = true)
