@@ -1,6 +1,5 @@
 package com.motycka.edu.order
 
-import com.motycka.edu.security.getUserIdentity
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -14,11 +13,54 @@ private const val ORDER_NOT_FOUND = "Order not found"
 private const val INVALID_ID = "Invalid ID format"
 
 fun Route.orderRoutes(
-    orderService: Any, // Replace with the actual order service
+    orderService: OrderService,
     basePath: String
 ) {
-    route("$basePath/orders") {
+        route("$basePath/orders") {
 
-        // implement the routes for orders
-    }
+            post {
+                val request = call.receive<OrderRequest>()
+                val orderResponse = orderService.createOrder(request)
+                call.respond(HttpStatusCode.Created, orderResponse)
+            }
+
+
+            get {
+                val orders = orderService.findAllOrders()
+                call.respond(HttpStatusCode.OK,  orders )
+            }
+
+
+            get("{id}") {
+                val id = call.parameters["id"]?.toLongOrNull()
+                if (id == null) {
+                    call.respond(HttpStatusCode.BadRequest, INVALID_ID)
+                    return@get
+                }
+                val order = orderService.findOrderById(OrderId(id))
+                if (order != null) {
+                    call.respond(HttpStatusCode.OK, order)
+                } else {
+                    call.respond(HttpStatusCode.NotFound, ORDER_NOT_FOUND)
+                }
+            }
+
+
+            put("{id}") {
+                val id = call.parameters["id"]?.toLongOrNull()
+                if (id == null) {
+                    call.respond(HttpStatusCode.BadRequest, INVALID_ID)
+                    return@put
+                }
+                val request = call.receive<OrderUpdateRequest>()
+                val updatedOrder = orderService.updateOrderStatus(OrderId(id), request)
+                if (updatedOrder != null) {
+                    call.respond(HttpStatusCode.OK, updatedOrder)
+                } else {
+                    call.respond(HttpStatusCode.NotFound, ORDER_NOT_FOUND)
+                }
+            }
+        }
+
+
 }
